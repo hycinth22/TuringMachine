@@ -5,10 +5,11 @@
 #include <ctime>
 #include <cstdio>
 #include <cstdlib>
+#include <cassert>
 using namespace std;
 typedef unsigned long Num;
 
-// 实现自动扩容的单向带
+// 实现自动扩容的单向无穷带
 const char EMPTY = 'E';
 class Tape {
 public:
@@ -69,8 +70,8 @@ public:
         while (state != finalState) {
             auto ru = rules.find(OldState{state, tape1[head1], tape2[head2]});
             if (ru == rules.end()) {
-                cerr << "abnormal halt! no next transferable status" << endl;
-                printf("state: %d, (%c, %c)\n", state, tape1[head1], tape2[head2]);
+                cerr << "非正常停机！没有下一个可以转换到的状态" << endl;
+                printf("状态: %d, (%c, %c)\n", state, tape1[head1], tape2[head2]);
                 // 输出当前纸带
                 cout << tape1.content << endl
                      << tape2.content << endl;
@@ -106,7 +107,7 @@ public:
         clock_t endTime = clock();
         double cpu_time_used = ((double) (endTime - startTime)) / CLOCKS_PER_SEC;
         // 运行结束，从纸带2取出结果
-        cout << "computation completed, time used " << cpu_time_used << " seconds." << endl;
+        cout << "计算完成，用时 " << cpu_time_used << " 秒." << endl;
         int result = 0;
         while (tape2.content[head2++] == '1') ++result;
         return result;
@@ -121,8 +122,8 @@ public:
     void readRulesFromFile(const char *filepath) {
         FILE *fp = fopen(filepath, "r");
         if (!fp) {
-            perror("read transfer rules from file failed:");
-            printf("Please put the file into the directory where this program runs");
+            perror("从文件读取转移规则失败:");
+            printf("需要把转移规则文件%s放到程序目录下", filepath);
             exit(1);
         }
         OldState old{}; char mov1, mov2;
@@ -143,25 +144,48 @@ public:
                    n.state, n.write[0], n.write[1],
                    mov1, mov2);
         }
-        printf("all transfer rules have been read from file.\n");
+        printf("转移规则读取完成.\n");
     }
 };
 
+// 批量验证运算正确性
+void batch_verify() {
+    TuringM m;
+    m.readRulesFromFile("./transfer_rules.txt");
+    Num a = 0, x = 0, b = 0, y = 0;
+    for (int i=0; i<= 200; i++) {
+        switch (i % 4) {
+            case 0: ++a;break;
+            case 1: ++x;break;
+            case 2: ++b;break;
+            case 3: ++y;break;
+        }
+        Num result = m.compute(a, x, b, y);
+        printf("%d %d %d %d = %d\n", a, x, b, y, result);
+        assert(result == a*x*x+b*y); // 使用断言检查图灵机结果正确性，对比图灵机运算结果与计算机直接计算
+        if(result != a*x*x+b*y) {
+            exit(1);
+        }
+        m.reset();
+    }
+}
+
 int main() {
+    // batch_verify(); return 0;
     TuringM m;
     m.readRulesFromFile("./transfer_rules.txt");
     Num a, x, b, y;
     while (cin) {
-        cout << "input a x b y to calculate a*x^2+b*y" << endl;
+        cout << "输入 a x b y 来计算 a*x^2+b*y" << endl;
         cout << "a x b y:";
         cin >> a >> x >> b >> y;
-        cout << "running...\n" << endl;
-
+        cout << "运行中...\n" << endl;
         Num result = m.compute(a, x, b, y);
+        assert(result == a*x*x+b*y); // 使用断言检查图灵机结果正确性，对比图灵机运算结果与计算机直接计算
         if (result != -1) {
-            cout << "the result is " << result << endl << endl;
+            cout << "结果是 " << result << endl << endl;
         } else {
-            cout << "Turing machine shuts down abnormally!" << endl;
+            cout << "图灵机非正常停机!" << endl;
         }
         m.reset();
         cout << "-------------" << endl;
